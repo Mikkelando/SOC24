@@ -1,10 +1,10 @@
 import numpy as np
-from base_model import DynamicModel 
+from base_model import DynamicModel
 
-class InfiniteDeGrootModel(DynamicModel):
+class InfiniteFriedkinModel(DynamicModel):
     def __init__(self, delta, K, L1=100):
         """
-        Инициализация модели Дегрута для бесконечного числа участников.
+        Инициализация модели Фридкина для бесконечного числа участников.
         
         :param delta: Параметр для генерации начальных мнений.
         :param K: Параметр для (2K+1)-диагональной матрицы влияния.
@@ -16,8 +16,10 @@ class InfiniteDeGrootModel(DynamicModel):
         self.max_agents = 1000  # Установим максимальное число агентов для ограничения
         initial_state = self.generate_initial_state()
         influence_matrix = self.generate_influence_matrix()
+        stubbornness = self.generate_stubbornness()
         super().__init__(initial_state)
         self.influence_matrix = influence_matrix
+        self.stubbornness = stubbornness
 
     def generate_initial_state(self):
         """
@@ -40,11 +42,17 @@ class InfiniteDeGrootModel(DynamicModel):
         W = W / W.sum(axis=1, keepdims=True)
         return W
 
+    def generate_stubbornness(self):
+        """
+        Генерация вектора упрямства агентов.
+        """
+        return np.random.rand(self.L1)
+
     def step(self):
         """
-        Выполняет один шаг динамики по модели Дегрута.
+        Выполняет один шаг динамики по модели Фридкина.
         """
-        self.current_state = self.influence_matrix @ self.current_state
+        self.current_state = (1 - self.stubbornness) * (self.influence_matrix @ self.current_state) + self.stubbornness * self.initial_state
 
     def adjust_participants(self, T):
         """
@@ -54,5 +62,6 @@ class InfiniteDeGrootModel(DynamicModel):
         self.L1 = L
         self.initial_state = self.generate_initial_state()
         self.influence_matrix = self.generate_influence_matrix()
+        self.stubbornness = self.generate_stubbornness()
         self.current_state = np.array(self.initial_state)
         self.states_cache = {0: np.array(self.initial_state)}
