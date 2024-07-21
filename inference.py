@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 from models import DeGrootModel, FriedkinModel, HegselmannKrauseModel
@@ -5,6 +6,7 @@ import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
+from funcs import *
 
 # Функция для генерации случайной матрицы влияния
 def generate_random_matrix(size):
@@ -21,37 +23,96 @@ app = dash.Dash(__name__)
 app.layout = html.Div(
     className='container',
     children=[
-        html.Div([
-            html.Label('Number of Agents'),
-            dcc.Input(id='agent-count-input', value='3', type='number', min=2),
-            html.Button('Apply', id='apply-agent-count-btn')
-        ]),
         dcc.Dropdown(
             id='model-dropdown',
             options=[
                 {'label': 'DeGroot', 'value': 'DeGroot'},
                 {'label': 'Friedkin', 'value': 'Friedkin'},
-                {'label': 'Hegselmann-Krause', 'value': 'Hegselmann-Krause'}
+                {'label': 'Hegselmann-Krause', 'value': 'Hegselmann-Krause'},
+                {'label': 'InfiniteDeGroot', 'value': 'InfiniteDeGroot'},
+                {'label': 'InfiniteFriedkin', 'value': 'InfiniteFriedkin'},
+                {'label': 'InfiniteHegselmannKrause', 'value': 'InfiniteHegselmannKrause'}
             ],
             value='DeGroot'
         ),
+        
+        html.Div([
+            html.Label('Number of Agents'),
+            dcc.Input(id='agent-count-input', value='3', type='number', min=2),
+            html.Button('Apply', id='apply-agent-count-btn')
+        ]),
+        
+        html.Div(
+            id='stubbornness-container',
+            children=[
+                html.Label('Stubbornness '),
+                dcc.Input(id='stubbornness-input', value='0.1', type='text')
+            ],
+            style={'display': 'none'}
+        ),
+        
+        html.Div(
+            id='epsilon-container',
+            children=[
+                html.Label('Epsilon'),
+                dcc.Input(id='epsilon-input', value='0.5', type='text')
+            ],
+            style={'display': 'none'}
+        ),
+        
+        html.Div([
+            html.Label('Initial State Generation Method'),
+            dcc.Dropdown(
+                id='initial-state-method-dropdown',
+                options=[
+                    {'label': 'Equal Spacing', 'value': 'equal_spacing'},
+                    {'label': 'Asymptotic Spacing', 'value': 'asymptotic_spacing'},
+                    {'label': 'Random Spacing', 'value': 'random_spacing'}
+                ],
+                value='equal_spacing'
+            ),
+            html.Div(
+                id='delta-cont',
+                children=[
+                    html.Label('Delta'),
+                    dcc.Input(id='delta-input', value='0.1', type='text')
+                ],
+                style={'display': 'none'}
+            ),
+            html.Div(
+                id='c-cont',
+                children=[
+                    html.Label('C (for Asymptotic Spacing)'),
+                    dcc.Input(id='c-input', value='1.0', type='text')
+                ],
+                style={'display': 'none'}
+            )
+        ]),
+        
         html.Div([
             html.Label('Initial State (comma separated)'),
             dcc.Input(id='initial-state-input', value='0.6,0.4,0.7', type='text'),
             html.Button('Generate Initial State', id='generate-initial-state-btn'),
             html.Button('Save Initial State', id='save-initial-state-btn')
         ]),
-        html.Div([
-            html.Label('Influence Matrix (comma separated rows)'),
-            dcc.Textarea(
-                id='influence-matrix-input',
-                value='0.5,0.3,0.2\n0.2,0.5,0.3\n0.3,0.2,0.5',
-                style={'width': '100%', 'height': 100}
-            ),
-            html.Button('Generate Influence Matrix', id='generate-matrix-btn'),
-            html.Button('Save Influence Matrix', id='save-matrix-btn')
-        ]),
+        
+        html.Div(
+            id='mat-container',
+            children=[
+                html.Label('Influence Matrix (comma separated rows)'),
+                dcc.Textarea(
+                    id='influence-matrix-input',
+                    value='0.5,0.3,0.2\n0.2,0.5,0.3\n0.3,0.2,0.5',
+                    style={'width': '100%', 'height': 100}
+                ),
+                html.Button('Generate Influence Matrix', id='generate-matrix-btn'),
+                html.Button('Save Influence Matrix', id='save-matrix-btn')
+            ],
+            style={'display': 'block'}
+        ),
+        
         dcc.Graph(id='model-graph', className='graph'),
+        
         dcc.RangeSlider(
             id='n-slider',
             min=0,
@@ -60,21 +121,84 @@ app.layout = html.Div(
             value=[0, 10],
             marks={i: str(i) for i in range(0, 51)}
         ),
+        
         html.Div(id='save-output', style={'marginTop': 20})
     ]
 )
+
+
+@app.callback(
+    Output('stubbornness-container', 'style'),
+    [Input('model-dropdown', 'value')]
+)
+def toggle_stubbornness_input(selected_model):
+    if selected_model == 'Friedkin':
+        return {'display': 'block'}
+    return {'display': 'none'}
+
+@app.callback(
+    Output('epsilon-container', 'style'),
+    [Input('model-dropdown', 'value')]
+)
+def toggle_epsilon_input(selected_model):
+    if selected_model == 'Hegselmann-Krause':
+        return {'display': 'block'}
+    return {'display': 'none'}
+
+
+
+
+
+# @app.callback(
+#     Output('delta-cont', 'style'),
+#     [Input('initial-state-method-dropdown', 'value')]
+# )
+# def toggle_delta_input(selected_model):
+#     if selected_model == 'equal_spacing':
+#         return {'display': 'block'}
+#     return {'display': 'none'}
+
+
+@app.callback(
+    [Output('c-cont', 'style'),
+     Output('delta-cont', 'style')],
+    [Input('initial-state-method-dropdown', 'value')]
+)
+def toggle_c_input(selected_model):
+    if selected_model == 'asymptotic_spacing':
+        return [{'display': 'block'}, {'display': 'block'}] 
+    elif selected_model == 'equal_spacing':
+        return [{'display': 'none'}, {'display': 'block'}] 
+    return [{'display': 'none'}, {'display': 'none'}] 
+
+
+
+
+
+@app.callback(
+    Output('mat-container', 'style'),
+    [Input('model-dropdown', 'value')]
+)
+def toggle_mat_input(selected_model):
+    if selected_model == 'Hegselmann-Krause':
+        return {'display': 'none'}
+    return {'display': 'block'}
+
 
 @app.callback(
     [Output('initial-state-input', 'value'),
      Output('influence-matrix-input', 'value')],
     [Input('generate-initial-state-btn', 'n_clicks'),
      Input('generate-matrix-btn', 'n_clicks'),
-     Input('apply-agent-count-btn', 'n_clicks')],
+     Input('apply-agent-count-btn', 'n_clicks'),
+     Input('initial-state-method-dropdown', 'value'),
+     Input('delta-input', 'value'),
+     Input('c-input', 'value')],
     [State('agent-count-input', 'value'),
      State('initial-state-input', 'value'),
      State('influence-matrix-input', 'value')]
 )
-def update_inputs(n_clicks_init, n_clicks_matrix, n_clicks_apply, agent_count, initial_state_value, influence_matrix_value):
+def update_inputs(n_clicks_init, n_clicks_matrix, n_clicks_apply,initial_config,delta, C,  agent_count, initial_state_value, influence_matrix_value):
     ctx = dash.callback_context
 
     if not ctx.triggered:
@@ -83,32 +207,57 @@ def update_inputs(n_clicks_init, n_clicks_matrix, n_clicks_apply, agent_count, i
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
     if trigger_id == 'apply-agent-count-btn':
-        initial_state = generate_random_initial_state(agent_count)
-        influence_matrix = generate_random_matrix(agent_count)
+        if initial_config == 'equal_spacing':
+            initial_state = generate_equal_spacing(delta, agent_count)
+        elif initial_config == 'asymptotic_spacing':
+            initial_state = generate_asymptotic_spacing(delta, C, agent_count)
+        elif initial_config == 'random_spacing':
+            initial_state = generate_random_spacing(delta, agent_count)
+
+        influence_matrix = generate_stochastic_matrix(agent_count)
         initial_state_str = ','.join(map(str, initial_state))
         influence_matrix_str = '\n'.join([','.join(map(str, row)) for row in influence_matrix])
         return initial_state_str, influence_matrix_str
+    
+  
 
     if trigger_id == 'generate-initial-state-btn':
-        initial_state = generate_random_initial_state(agent_count)
+        if initial_config == 'equal_spacing':
+            initial_state = generate_equal_spacing(delta, agent_count)
+        elif initial_config == 'asymptotic_spacing':
+            initial_state = generate_asymptotic_spacing(delta, C, agent_count)
+        elif initial_config == 'random_spacing':
+            initial_state = generate_random_spacing(delta, agent_count)
+
+        # initial_state = generate_random_initial_state(agent_count)
         initial_state_str = ','.join(map(str, initial_state))
         return initial_state_str, influence_matrix_value
 
     if trigger_id == 'generate-matrix-btn':
-        influence_matrix = generate_random_matrix(agent_count)
+        influence_matrix = generate_stochastic_matrix(agent_count)
         influence_matrix_str = '\n'.join([','.join(map(str, row)) for row in influence_matrix])
         return initial_state_value, influence_matrix_str
 
     return initial_state_value, influence_matrix_value
+
+
+
+
+   
+
+
 
 @app.callback(
     Output('model-graph', 'figure'),
     [Input('model-dropdown', 'value'),
      Input('initial-state-input', 'value'),
      Input('influence-matrix-input', 'value'),
-     Input('n-slider', 'value')]
+     Input('n-slider', 'value'),
+     Input('stubbornness-input', 'value'),
+     Input('epsilon-input', 'value'),
+     ]
 )
-def update_graph(selected_model, initial_state_str, influence_matrix_str, n_range):
+def update_graph(selected_model, initial_state_str, influence_matrix_str, n_range, stubbornness_str, epsilon_str):
     # Преобразование строки начального состояния в список чисел
     initial_state = list(map(float, initial_state_str.split(',')))
 
@@ -121,10 +270,10 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
     if selected_model == 'DeGroot':
         model = DeGrootModel(initial_state, influence_matrix)
     elif selected_model == 'Friedkin':
-        stubbornness = [0.1] * len(initial_state)  # Пример жесткости агентов
+        stubbornness = float(stubbornness_str)  # Пример жесткости агентов
         model = FriedkinModel(initial_state, influence_matrix, stubbornness)
     else:
-        epsilon = 0.2  # Пример параметра для модели Хегсельмана-Краузе
+        epsilon = float(epsilon_str)  # Пример параметра для модели Хегсельмана-Краузе
         model = HegselmannKrauseModel(initial_state, epsilon)
 
     # Генерация состояний
@@ -169,7 +318,7 @@ def save_data(n_clicks_initial, n_clicks_matrix, initial_state_value, influence_
     if trigger_id == 'save-initial-state-btn':
         initial_state = list(map(float, initial_state_value.split(',')))
         df_initial_state = pd.DataFrame(initial_state, columns=['Initial State'])
-        df_initial_state.to_csv('initial_state.csv', index=False)
+        df_initial_state.to_csv('data/initial_state.csv', index=False)
         return 'Initial state saved to initial_state.csv'
     
     if trigger_id == 'save-matrix-btn':
@@ -177,10 +326,14 @@ def save_data(n_clicks_initial, n_clicks_matrix, initial_state_value, influence_
             [list(map(float, row.split(','))) for row in influence_matrix_value.split('\n')]
         )
         df_influence_matrix = pd.DataFrame(influence_matrix)
-        df_influence_matrix.to_csv('influence_matrix.csv', index=False)
+        df_influence_matrix.to_csv('data/influence_matrix.csv', index=False)
         return 'Influence matrix saved to influence_matrix.csv'
 
     return ''
 
 if __name__ == '__main__':
+    try:
+        os.mkdir('data')
+    except:
+        pass
     app.run_server(debug=True)
