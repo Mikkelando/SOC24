@@ -7,6 +7,9 @@ from dash import dcc, html
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 from funcs import *
+from models.degroot_inf import InfiniteDeGrootModel
+from models.friedkin_inf import InfiniteFriedkinModel
+from models.hegselmann_inf import InfiniteHegselmannKrauseModel
 
 # Функция для генерации случайной матрицы влияния
 def generate_random_matrix(size):
@@ -111,6 +114,36 @@ app.layout = html.Div(
             style={'display': 'block'}
         ),
         
+        html.Div(
+            id='inf-cont',
+            children=[
+                html.Label('Число шагов T'),
+                dcc.Input(
+                    id='T-input',
+                    type='number',
+                    value=10,
+                    placeholder='Число шагов T'
+                ),
+                html.Br(),
+                html.Label('Параметр K'),
+                dcc.Input(
+                    id='K-input',
+                    type='number',
+                    value=3,
+                    placeholder='Параметр K'
+                ),
+                html.Br(),
+                html.Label('Порог epsilon'),
+                dcc.Input(
+                    id='E-input',
+                    type='number',
+                    value=0.2,
+                    placeholder='Порог epsilon'
+                )
+            ],
+            style={'margin-top': '10px', 'display': 'none'}
+        ),
+
         dcc.Graph(id='model-graph', className='graph'),
         
         dcc.RangeSlider(
@@ -125,6 +158,7 @@ app.layout = html.Div(
         html.Div(id='save-output', style={'marginTop': 20})
     ]
 )
+
 
 
 @app.callback(
@@ -146,6 +180,14 @@ def toggle_epsilon_input(selected_model):
     return {'display': 'none'}
 
 
+@app.callback(
+    Output('inf-cont', 'style'),
+    [Input('model-dropdown', 'value')]
+)
+def toggle_inf_input(selected_model):
+    if 'Infinite' in selected_model:
+        return {'display': 'block'}
+    return {'display': 'none'}
 
 
 
@@ -188,17 +230,17 @@ def toggle_mat_input(selected_model):
 @app.callback(
     [Output('initial-state-input', 'value'),
      Output('influence-matrix-input', 'value')],
-    [Input('generate-initial-state-btn', 'n_clicks'),
-     Input('generate-matrix-btn', 'n_clicks'),
-     Input('apply-agent-count-btn', 'n_clicks'),
-     Input('initial-state-method-dropdown', 'value'),
+    [Input('generate-initial-state-btn', 'n_clicks'), 
+     Input('generate-matrix-btn', 'n_clicks'), 
+     Input('apply-agent-count-btn', 'n_clicks'), 
+     Input('initial-state-method-dropdown', 'value'), 
      Input('delta-input', 'value'),
      Input('c-input', 'value')],
     [State('agent-count-input', 'value'),
      State('initial-state-input', 'value'),
      State('influence-matrix-input', 'value')]
 )
-def update_inputs(n_clicks_init, n_clicks_matrix, n_clicks_apply,initial_config,delta, C,  agent_count, initial_state_value, influence_matrix_value):
+def update_inputs(generate_initial_state_n_clicks, generate_matrix_n_clicks, apply_agent_count_n_clicks, initial_config, delta, C, agent_count, initial_state_value, influence_matrix_value):
     ctx = dash.callback_context
 
     if not ctx.triggered:
@@ -255,9 +297,14 @@ def update_inputs(n_clicks_init, n_clicks_matrix, n_clicks_apply,initial_config,
      Input('n-slider', 'value'),
      Input('stubbornness-input', 'value'),
      Input('epsilon-input', 'value'),
+     Input('T-input', 'value'),
+     Input('K-input', 'value'),
+     Input('E-input', 'value'),
+     Input('delta-input', 'value'),
+     Input('c-input', 'value'),
      ]
 )
-def update_graph(selected_model, initial_state_str, influence_matrix_str, n_range, stubbornness_str, epsilon_str):
+def update_graph(selected_model, initial_state_str, influence_matrix_str, n_range, stubbornness_str, epsilon_str, T, K, E, delta, C):
     # Преобразование строки начального состояния в список чисел
     initial_state = list(map(float, initial_state_str.split(',')))
 
@@ -272,9 +319,19 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
     elif selected_model == 'Friedkin':
         stubbornness = float(stubbornness_str)  # Пример жесткости агентов
         model = FriedkinModel(initial_state, influence_matrix, stubbornness)
-    else:
+    elif selected_model == 'Hegselmann-Krause':
         epsilon = float(epsilon_str)  # Пример параметра для модели Хегсельмана-Краузе
         model = HegselmannKrauseModel(initial_state, epsilon)
+
+    if selected_model == 'InfiniteDeGroot':
+        model = InfiniteDeGrootModel(float(delta), int(K), int(T))
+        model.adjust_participants(T)
+    elif selected_model == 'InfiniteFriedkin':
+        model = InfiniteFriedkinModel(float(delta), int(K), int(T))
+        model.adjust_participants(T)
+    elif selected_model == 'InfiniteHegselmannKrause':
+        model = InfiniteHegselmannKrauseModel(float(delta), int(K), int(T))
+        model.adjust_participants(T)
 
     # Генерация состояний
     states_up_to_n = model.generate_states_up_to_n(n_range[1])

@@ -13,7 +13,8 @@ class FriedkinModel(DynamicModel):
         """
         super().__init__(initial_state)
         self.influence_matrix = np.array(influence_matrix)
-        self.stubbornness = np.array(stubbornness)
+        self.stubbornness = stubbornness * np.ones(len(influence_matrix))
+
         
     def step(self):
         """

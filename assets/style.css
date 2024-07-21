@@ -2,9 +2,10 @@
 
 body {
     font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
+    margin: 10 10;
+    padding: 10 10;
     background-color: rgb(77, 81, 99);
+    color: white;
 }
 
 html, body, #root {
@@ -12,7 +13,7 @@ html, body, #root {
 }
 
 .container {
-    max-width: 800px;
+    max-width: 1200px; /* Increased from 800px to 1200px */
     margin: 0 auto;
     padding: 20px;
 }
@@ -23,27 +24,86 @@ label {
     margin-bottom: 5px;
 }
 
-input, textarea, .Select, .rc-slider {
+input, textarea, .rc-slider {
     width: 100%;
     margin-bottom: 10px;
     padding: 5px;
     font-size: 16px;
+    color: black;  /* Input text color */
 }
 
 button {
     background-color: #4CAF50;
     color: white;
     border: none;
+    border-radius: 5px;
     padding: 10px 20px;
     font-size: 16px;
     cursor: pointer;
     margin-right: 10px;
+    margin-bottom: 20px;
+    margin-left: 5px;
 }
 
 button:hover {
-    background-color: #45a049;
+    background-color: #58ca5c;
 }
 
 .graph {
     margin-top: 20px;
+}
+
+/* Specific styling for the dropdown with id 'model-dropdown' */
+#model-dropdown .Select-control {
+    background-color: white !important;  /* Background color of the dropdown */
+    color: black !important;  /* Text color in the dropdown */
+}
+
+#model-dropdown .Select-menu-outer {
+    background-color: white !important;  /* Background color of the dropdown options */
+}
+
+#model-dropdown .Select-option {
+    color: black !important;  /* Text color of the dropdown options */
+}
+
+#model-dropdown .Select-placeholder {
+    color: black !important;  /* Placeholder text color */
+}
+
+#model-dropdown .Select-value {
+    color: black !important;  /* Selected value text color */
+}
+
+#model-dropdown .Select-input {
+    color: black !important;  /* Selected value text color */
+}
+.dash-dropdown {
+    color : black;
+}
+
+#agent-count-input{
+    width: 30%;
+} 
+#stubbornness-input{
+    width: 30%;
+}
+ #epsilon-input{
+    width: 30%;
+} 
+#delta-input{
+    width: 30%;
+}
+ #c-input{
+    width: 30%;
+}
+
+#T-input{
+    width: 30%;
+}
+#K-input{
+    width: 30%;
+}
+#E-input{
+    width: 30%;
 }

@@ -15,6 +15,7 @@ class InfiniteDeGrootModel(DynamicModel):
         self.L1 = L1
         self.max_agents = 1000  # Установим максимальное число агентов для ограничения
         initial_state = self.generate_initial_state()
+        # print('from INIT ', initial_state)
         influence_matrix = self.generate_influence_matrix()
         super().__init__(initial_state)
         self.influence_matrix = influence_matrix
@@ -44,6 +45,8 @@ class InfiniteDeGrootModel(DynamicModel):
         """
         Выполняет один шаг динамики по модели Дегрута.
         """
+        # print(self.influence_matrix)
+        # print(self.current_state)
         self.current_state = self.influence_matrix @ self.current_state
 
     def adjust_participants(self, T):
