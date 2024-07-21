@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from models import DeGrootModel, FriedkinModel, HegselmannKrauseModel
 import dash
 from dash import dcc, html
@@ -37,7 +38,8 @@ app.layout = html.Div(
         html.Div([
             html.Label('Initial State (comma separated)'),
             dcc.Input(id='initial-state-input', value='0.6,0.4,0.7', type='text'),
-            html.Button('Generate Initial State', id='generate-initial-state-btn')
+            html.Button('Generate Initial State', id='generate-initial-state-btn'),
+            html.Button('Save Initial State', id='save-initial-state-btn')
         ]),
         html.Div([
             html.Label('Influence Matrix (comma separated rows)'),
@@ -46,7 +48,8 @@ app.layout = html.Div(
                 value='0.5,0.3,0.2\n0.2,0.5,0.3\n0.3,0.2,0.5',
                 style={'width': '100%', 'height': 100}
             ),
-            html.Button('Generate Influence Matrix', id='generate-matrix-btn')
+            html.Button('Generate Influence Matrix', id='generate-matrix-btn'),
+            html.Button('Save Influence Matrix', id='save-matrix-btn')
         ]),
         dcc.Graph(id='model-graph', className='graph'),
         dcc.RangeSlider(
@@ -56,7 +59,8 @@ app.layout = html.Div(
             step=1,
             value=[0, 10],
             marks={i: str(i) for i in range(0, 51)}
-        )
+        ),
+        html.Div(id='save-output', style={'marginTop': 20})
     ]
 )
 
@@ -147,6 +151,36 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
             hovermode='closest'
         )
     }
+
+@app.callback(
+    Output('save-output', 'children'),
+    [Input('save-initial-state-btn', 'n_clicks'),
+     Input('save-matrix-btn', 'n_clicks')],
+    [State('initial-state-input', 'value'),
+     State('influence-matrix-input', 'value')]
+)
+def save_data(n_clicks_initial, n_clicks_matrix, initial_state_value, influence_matrix_value):
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return ''
+    
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    if trigger_id == 'save-initial-state-btn':
+        initial_state = list(map(float, initial_state_value.split(',')))
+        df_initial_state = pd.DataFrame(initial_state, columns=['Initial State'])
+        df_initial_state.to_csv('initial_state.csv', index=False)
+        return 'Initial state saved to initial_state.csv'
+    
+    if trigger_id == 'save-matrix-btn':
+        influence_matrix = np.array(
+            [list(map(float, row.split(','))) for row in influence_matrix_value.split('\n')]
+        )
+        df_influence_matrix = pd.DataFrame(influence_matrix)
+        df_influence_matrix.to_csv('influence_matrix.csv', index=False)
+        return 'Influence matrix saved to influence_matrix.csv'
+
+    return ''
 
 if __name__ == '__main__':
     app.run_server(debug=True)
