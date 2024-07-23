@@ -11,6 +11,8 @@ from models.degroot_inf import InfiniteDeGrootModel
 from models.friedkin_inf import InfiniteFriedkinModel
 from models.hegselmann_inf import InfiniteHegselmannKrauseModel
 
+
+MAT = ''
 # Функция для генерации случайной матрицы влияния
 def generate_random_matrix(size):
     matrix = np.random.rand(int(size), int(size))
@@ -37,13 +39,16 @@ app.layout = html.Div(
                 {'label': 'InfiniteHegselmannKrause', 'value': 'InfiniteHegselmannKrause'}
             ],
             value='DeGroot'
+            
         ),
         
-        html.Div([
+        html.Div(
+            id= 'ag-num',
+            children=[
             html.Label('Number of Agents'),
             dcc.Input(id='agent-count-input', value='3', type='number', min=2),
             html.Button('Apply', id='apply-agent-count-btn')
-        ]),
+        ], style={'display': 'block'}),
         
         html.Div(
             id='stubbornness-container',
@@ -63,7 +68,9 @@ app.layout = html.Div(
             style={'display': 'none'}
         ),
         
-        html.Div([
+        html.Div(
+            id = 'in-st-g',
+            children = [
             html.Label('Initial State Generation Method'),
             dcc.Dropdown(
                 id='initial-state-method-dropdown',
@@ -72,7 +79,8 @@ app.layout = html.Div(
                     {'label': 'Asymptotic Spacing', 'value': 'asymptotic_spacing'},
                     {'label': 'Random Spacing', 'value': 'random_spacing'}
                 ],
-                value='equal_spacing'
+                value='equal_spacing',
+                style={'display': 'block'}
             ),
             html.Div(
                 id='delta-cont',
@@ -92,12 +100,16 @@ app.layout = html.Div(
             )
         ]),
         
-        html.Div([
-            html.Label('Initial State (comma separated)'),
-            dcc.Input(id='initial-state-input', value='0.6,0.4,0.7', type='text'),
-            html.Button('Generate Initial State', id='generate-initial-state-btn'),
-            html.Button('Save Initial State', id='save-initial-state-btn')
-        ]),
+        html.Div(
+            id='in-st',
+            children=[
+                html.Label('Initial State (comma separated)'),
+                dcc.Input(id='initial-state-input', value='0.6,0.4,0.7', type='text'),
+                html.Button('Generate Initial State', id='generate-initial-state-btn'),
+                html.Button('Save Initial State', id='save-initial-state-btn')
+            ],
+            style={'display': 'block'}
+        ),
         
         html.Div(
             id='mat-container',
@@ -108,7 +120,7 @@ app.layout = html.Div(
                     value='0.5,0.3,0.2\n0.2,0.5,0.3\n0.3,0.2,0.5',
                     style={'width': '100%', 'height': 100}
                 ),
-                html.Button('Generate Influence Matrix', id='generate-matrix-btn'),
+                html.Button('Generate Influence Matrix', id='generate-matrix-btn', style={'display': 'block'} ),
                 html.Button('Save Influence Matrix', id='save-matrix-btn')
             ],
             style={'display': 'block'}
@@ -146,13 +158,17 @@ app.layout = html.Div(
 
         dcc.Graph(id='model-graph', className='graph'),
         
-        dcc.RangeSlider(
-            id='n-slider',
-            min=0,
-            max=50,
-            step=1,
-            value=[0, 10],
-            marks={i: str(i) for i in range(0, 51)}
+        html.Div(
+            id = 'sl',
+            children=[dcc.RangeSlider(
+                id='n-slider',
+                min=0,
+                max=50,
+                step=1,
+                value=[0, 10],
+                marks={i: str(i) for i in range(0, 51)}
+                
+            )], style={'display': 'block'}
         ),
         
         html.Div(id='save-output', style={'marginTop': 20})
@@ -189,6 +205,58 @@ def toggle_inf_input(selected_model):
         return {'display': 'block'}
     return {'display': 'none'}
 
+
+
+@app.callback(
+    Output('ag-num', 'style'),
+    [Input('model-dropdown', 'value')]
+)
+def toggle_ag_num_input(selected_model):
+    if 'Infinite' in selected_model:
+        return {'display': 'none'}
+    return {'display': 'block'}
+
+
+@app.callback(
+    Output('in-st-g', 'style'),
+    [Input('model-dropdown', 'value')]
+)
+def toggle_ag_num_input(selected_model):
+    if 'Infinite' in selected_model:
+        return {'display': 'none'}
+    return {'display': 'block'}
+
+
+
+@app.callback(
+    Output('sl', 'style'),
+    [Input('model-dropdown', 'value')]
+)
+def toggle_ag_num_input(selected_model):
+    if 'Infinite' in selected_model:
+        return {'display': 'none'}
+    return {'display': 'block'}
+
+
+
+@app.callback(
+    Output('generate-matrix-btn', 'style'),
+    [Input('model-dropdown', 'value')]
+)
+def toggle_mat_input(selected_model):
+    if 'Infinite' in selected_model:
+        return {'display': 'none'}
+    return {'display': 'block'}
+
+
+@app.callback(
+    Output('in-st', 'style'),
+    [Input('model-dropdown', 'value')]
+)
+def toggle_mat_input(selected_model):
+    if 'Infinite' in selected_model:
+        return {'display': 'none'}
+    return {'display': 'block'}
 
 
 # @app.callback(
@@ -290,7 +358,8 @@ def update_inputs(generate_initial_state_n_clicks, generate_matrix_n_clicks, app
 
 
 @app.callback(
-    Output('model-graph', 'figure'),
+    [Output('model-graph', 'figure'),
+     Output('influence-matrix-input', 'value', allow_duplicate=True)],
     [Input('model-dropdown', 'value'),
      Input('initial-state-input', 'value'),
      Input('influence-matrix-input', 'value'),
@@ -303,15 +372,20 @@ def update_inputs(generate_initial_state_n_clicks, generate_matrix_n_clicks, app
      Input('delta-input', 'value'),
      Input('c-input', 'value'),
      ]
+     , prevent_initial_call=True
+
 )
 def update_graph(selected_model, initial_state_str, influence_matrix_str, n_range, stubbornness_str, epsilon_str, T, K, E, delta, C):
-    # Преобразование строки начального состояния в список чисел
-    initial_state = list(map(float, initial_state_str.split(',')))
 
-    # Преобразование строки матрицы влияния в numpy array
-    influence_matrix = np.array(
-        [list(map(float, row.split(','))) for row in influence_matrix_str.split('\n')]
-    )
+
+    if 'Infinite' not in selected_model:
+        # Преобразование строки начального состояния в список чисел
+        initial_state = list(map(float, initial_state_str.split(',')))
+
+        # Преобразование строки матрицы влияния в numpy array
+        influence_matrix = np.array(
+            [list(map(float, row.split(','))) for row in influence_matrix_str.split('\n')]
+        )
 
     # Создание экземпляра выбранной модели
     if selected_model == 'DeGroot':
@@ -326,28 +400,57 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
     if selected_model == 'InfiniteDeGroot':
         model = InfiniteDeGrootModel(float(delta), int(K), int(T))
         model.adjust_participants(T)
+
     elif selected_model == 'InfiniteFriedkin':
         model = InfiniteFriedkinModel(float(delta), int(K), int(T))
         model.adjust_participants(T)
     elif selected_model == 'InfiniteHegselmannKrause':
         model = InfiniteHegselmannKrauseModel(float(delta), int(K), int(T))
+        model.epsilon = E
         model.adjust_participants(T)
 
     # Генерация состояний
-    states_up_to_n = model.generate_states_up_to_n(n_range[1])
-    time_steps = list(range(n_range[0], n_range[1] + 1))
-    states = np.array(states_up_to_n).T[:, n_range[0]:n_range[1] + 1]
 
-    # Построение графика
-    traces = []
-    for i in range(states.shape[0]):
-        traces.append(go.Scatter(
-            x=time_steps,
-            y=states[i],
-            mode='lines+markers',
-            name=f'Agent {i+1}'
-        ))
 
+
+    if 'Infinite' in selected_model:
+        states_up_to_n = model.generate_states_up_to_n(n_range[1])
+        time_steps = list(range(n_range[1] + 1))
+        states = np.array(states_up_to_n).T
+        
+        traces = []
+        for i in range(min(states.shape[0], 100)):  # Ограничение на отображение до 100 агентов
+            traces.append(go.Scatter(
+                x=time_steps,
+                y=states[i],
+                mode='lines+markers',
+                name=f'Agent {i+1}'
+            ))
+
+    
+
+
+    else:
+        states_up_to_n = model.generate_states_up_to_n(n_range[1])
+        time_steps = list(range(n_range[0], n_range[1] + 1))
+        states = np.array(states_up_to_n).T[:, n_range[0]:n_range[1] + 1]
+
+        # Построение графика
+        traces = []
+        for i in range(states.shape[0]):
+            traces.append(go.Scatter(
+                x=time_steps,
+                y=states[i],
+                mode='lines+markers',
+                name=f'Agent {i+1}'
+            ))
+
+
+    if 'Infinite' in selected_model:
+        influence_matrix_ret = '\n'.join([','.join(map(str, row)) for row in model.influence_matrix])
+    else:
+        influence_matrix_ret = influence_matrix_str
+    MAT = influence_matrix_ret
     return {
         'data': traces,
         'layout': go.Layout(
@@ -356,7 +459,7 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
             yaxis={'title': 'Состояние'},
             hovermode='closest'
         )
-    }
+    }, influence_matrix_ret
 
 @app.callback(
     Output('save-output', 'children'),
