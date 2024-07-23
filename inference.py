@@ -4,6 +4,7 @@ import pandas as pd
 from models import DeGrootModel, FriedkinModel, HegselmannKrauseModel
 import dash
 from dash import dcc, html
+import dash_daq as daq
 from dash.dependencies import Input, Output, State
 import plotly.graph_objs as go
 from funcs import *
@@ -110,21 +111,40 @@ app.layout = html.Div(
             ],
             style={'display': 'block'}
         ),
-        
+
+       
         html.Div(
             id='mat-container',
             children=[
+                
+
+
                 html.Label('Influence Matrix (comma separated rows)'),
+
+                html.Div(children=[
+                html.Label('Round'),
+                daq.ToggleSwitch(
+                    id='round_toggle',
+                    value=False
+                ),
+                    
+                ]),
                 dcc.Textarea(
                     id='influence-matrix-input',
                     value='0.5,0.3,0.2\n0.2,0.5,0.3\n0.3,0.2,0.5',
-                    style={'width': '100%', 'height': 100}
+                    style={'width': '100%', 'height': 100, 'display': 'block'}
+                ),
+                dcc.Textarea(
+                    id='round-influence-matrix-input',
+                    value='0.5,0.3,0.2\n0.2,0.5,0.3\n0.3,0.2,0.5',
+                    style={'width': '100%', 'height': 100, 'display': 'none'}
                 ),
                 html.Button('Generate Influence Matrix', id='generate-matrix-btn', style={'display': 'block'} ),
                 html.Button('Save Influence Matrix', id='save-matrix-btn')
             ],
             style={'display': 'block'}
         ),
+       
         
         html.Div(
             id='inf-cont',
@@ -175,6 +195,17 @@ app.layout = html.Div(
     ]
 )
 
+
+
+@app.callback(
+    [Output('influence-matrix-input', 'style'), 
+     Output('round-influence-matrix-input', 'style') ],
+    Input('round_toggle', 'value')
+)
+def update_output(value):
+    if value:
+        return {'width': '100%', 'height': 100, 'display': 'none'}, {'width': '100%', 'height': 100, 'display': 'block'}
+    return {'width': '100%', 'height': 100, 'display': 'block'}, {'width': '100%', 'height': 100, 'display': 'none'}
 
 
 @app.callback(
@@ -359,7 +390,8 @@ def update_inputs(generate_initial_state_n_clicks, generate_matrix_n_clicks, app
 
 @app.callback(
     [Output('model-graph', 'figure'),
-     Output('influence-matrix-input', 'value', allow_duplicate=True)],
+     Output('influence-matrix-input', 'value', allow_duplicate=True),
+     Output('round-influence-matrix-input', 'value')],
     [Input('model-dropdown', 'value'),
      Input('initial-state-input', 'value'),
      Input('influence-matrix-input', 'value'),
@@ -371,6 +403,7 @@ def update_inputs(generate_initial_state_n_clicks, generate_matrix_n_clicks, app
      Input('E-input', 'value'),
      Input('delta-input', 'value'),
      Input('c-input', 'value'),
+     
      ]
      , prevent_initial_call=True
 
@@ -447,10 +480,27 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
 
 
     if 'Infinite' in selected_model:
-        influence_matrix_ret = '\n'.join([','.join(map(str, row)) for row in model.influence_matrix])
+        if selected_model == 'InfiniteHegselmannKrause':
+            round_influence_matrix_ret =''
+            influence_matrix_ret = ''
+        else:
+            # if model.influence_matrix.shape[0] > 20:
+            #     round_influence_matrix_ret ='Матрица слишком большая, показать не получается, зато можно сохранить в csv 👇🏽'
+            #     influence_matrix_ret = 'Матрица слишком большая, показать не получается, зато можно сохранить в csv 👇🏽'
+            # else:
+            mat = np.round(model.influence_matrix, 2)
+            round_influence_matrix_ret ='\n'.join([','.join(map(str, row)) for row in mat]) 
+            influence_matrix_ret = '\n'.join([','.join(map(str, row)) for row in model.influence_matrix])
+
+            
     else:
+        matrix = np.array(
+            [list(map(float, row.split(','))) for row in influence_matrix_str.split('\n')]
+        )
+        mat = np.round(matrix, 2)
+        round_influence_matrix_ret = '\n'.join([','.join(map(str, row)) for row in mat]) 
         influence_matrix_ret = influence_matrix_str
-    MAT = influence_matrix_ret
+    # MAT = influence_matrix_ret
     return {
         'data': traces,
         'layout': go.Layout(
@@ -459,7 +509,7 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
             yaxis={'title': 'Состояние'},
             hovermode='closest'
         )
-    }, influence_matrix_ret
+    }, influence_matrix_ret, round_influence_matrix_ret
 
 @app.callback(
     Output('save-output', 'children'),
