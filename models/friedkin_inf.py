@@ -56,7 +56,7 @@ class InfiniteFriedkinModel(DynamicModel):
         """
         Выполняет один шаг динамики по модели Фридкина.
         """
-        self.current_state = (1 - self.stubbornness) * (self.influence_matrix @ self.current_state) + self.stubbornness * self.initial_state
+        self.current_state = (np.eye(len(self.current_state)) - self.stubbornness) @ (self.influence_matrix @ self.current_state) + self.stubbornness @ self.initial_state
 
     def adjust_participants(self, T):
         """

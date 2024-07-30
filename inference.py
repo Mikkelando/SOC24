@@ -72,7 +72,8 @@ app.layout = html.Div(
             id='stubbornness-container',
             children=[
                 html.Label('Stubbornness '),
-                dcc.Input(id='stubbornness-input', value='0.1', type='text')
+                dcc.Input(id='stubbornness-input', value='0.1,0.1,0.1', type='text'), 
+                html.Button('Generate Stubbornness', id='gen-stub-btn')
             ],
             style={'display': 'none'}
         ),
@@ -345,6 +346,41 @@ def toggle_E_input(selected_model):
     return {'display': 'none'}, {'display': 'none'}
 
 
+def generate_stub(n):
+    diagonal_elements = np.random.rand(n)
+    # diagonal_matrix = np.diag(diagonal_elements)
+    return diagonal_elements
+
+@app.callback(
+    Output('stubbornness-input', 'value'),
+    [Input('gen-stub-btn', 'n_clicks')],
+    [State('stubbornness-input', 'value'),
+     State('influence-matrix-input', 'value')]
+)
+def update_stub(n_clicks, value, influence_matrix_str):
+
+    ctx = dash.callback_context
+
+    if not ctx.triggered:
+        return value
+    
+    trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    if trigger_id == 'gen-stub-btn':
+
+        matrix = np.array(
+            [list(map(float, row.split(','))) for row in influence_matrix_str.split('\n')]
+        )
+        stub = generate_stub(matrix.shape[0])
+    
+        return ','.join(map(str, stub))
+
+
+
+
+
+
+
+
 @app.callback(
     [Output('initial-state-input', 'value'),
      Output('influence-matrix-input', 'value')],
@@ -356,7 +392,8 @@ def toggle_E_input(selected_model):
      Input('c-input', 'value')],
     [State('agent-count-input', 'value'),
      State('initial-state-input', 'value'),
-     State('influence-matrix-input', 'value')]
+     State('influence-matrix-input', 'value'),
+     ]
 )
 def update_inputs(generate_initial_state_n_clicks, generate_matrix_n_clicks, apply_agent_count_n_clicks, initial_config, delta, C, agent_count, initial_state_value, influence_matrix_value):
     ctx = dash.callback_context
@@ -443,7 +480,12 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
     if selected_model == 'DeGroot':
         model = DeGrootModel(initial_state, influence_matrix)
     elif selected_model == 'Friedkin':
-        stubbornness = float(stubbornness_str)  # Пример жесткости агентов
+        stubbornness = list(map(float, stubbornness_str.split(',')))  # Пример жесткости агентов
+        if stubbornness is None:
+            stubbornness = [0.0]
+        if len(stubbornness) == 1:
+            el = stubbornness[0] 
+            stubbornness = [el for _ in range(len(initial_state))]
         model = FriedkinModel(initial_state, influence_matrix, stubbornness)
     elif selected_model == 'Hegselmann-Krause':
         epsilon = float(epsilon_str)  # Пример параметра для модели Хегсельмана-Краузе
@@ -454,9 +496,16 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
         model.adjust_participants(T)
 
     elif selected_model == 'InfiniteFriedkin':
-        stubbornness = float(stubbornness_str) 
+        stubbornness = list(map(float, stubbornness_str.split(','))) 
+
+        
         model = InfiniteFriedkinModel(float(delta), int(K), int(T))
-        model.stubbornness = stubbornness
+        if stubbornness is None:
+            stubbornness = [0.0]
+        if len(stubbornness) == 1:
+            el = stubbornness[0] 
+            stubbornness = [el for _ in range(len(initial_state))]
+        model.stubbornness = np.diag(stubbornness)
         model.adjust_participants(T)
     elif selected_model == 'InfiniteHegselmannKrause':
         model = InfiniteHegselmannKrauseModel(float(delta), int(K), int(T))
@@ -480,33 +529,68 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
         states_up_to_n = model.generate_states_up_to_n(n_range[1])
         states = np.array(states_up_to_n).T[start_agent:end_agent]
         time_steps = list(range(n_range[0], n_range[1] + 1))
-        traces = []
-        print(states.shape)
-        for i in range(states.shape[0]): # Ограничение на отображение до 100 агентов
-            traces.append(go.Scatter(
-                x=time_steps,
-                y=states[i],
-                mode='lines+markers',
-                name=f'Agent {i+1}'
-            ))
+        fig = go.Figure()
+
+        for i in range(states.shape[0]):
+            agent_states = states[i]
+
+            for j in range(1, len(agent_states)):
+                x = [time_steps[j - 1], time_steps[j]]
+                y = [agent_states[j - 1], agent_states[j]]
+
+                if agent_states[j] > agent_states[j - 1]:
+                    color = 'blue'
+                elif agent_states[j] < agent_states[j - 1]:
+                    color = 'red'
+                else:
+                    color = 'black'
+
+                # Добавляем линии для каждого агента с нужными цветами
+                fig.add_trace(go.Scatter(
+                    x=x,
+                    y=y,
+                    mode='lines+markers',
+                    name=f'Agent {i+1}' if j == 1 else '',  # Показываем имя агента только для первого следа
+                    line=dict(color=color),
+                    legendgroup=f'Agent {i+1}',  # Группируем по агенту
+                    showlegend=(j == 1)  # Показываем имя агента только один раз
+                ))
 
     
 
 
     else:
         states_up_to_n = model.generate_states_up_to_n(n_range[1])
+        # print(states_up_to_n)
         time_steps = list(range(n_range[0], n_range[1] + 1))
         states = np.array(states_up_to_n).T[:, n_range[0]:n_range[1] + 1]
 
-        # Построение графика
-        traces = []
+        fig = go.Figure()
+
         for i in range(states.shape[0]):
-            traces.append(go.Scatter(
-                x=time_steps,
-                y=states[i],
-                mode='lines+markers',
-                name=f'Agent {i+1}'
-            ))
+            agent_states = states[i]
+
+            for j in range(1, len(agent_states)):
+                x = [time_steps[j - 1], time_steps[j]]
+                y = [agent_states[j - 1], agent_states[j]]
+
+                if agent_states[j] > agent_states[j - 1]:
+                    color = 'blue'
+                elif agent_states[j] < agent_states[j - 1]:
+                    color = 'red'
+                else:
+                    color = 'black'
+
+                # Добавляем линии для каждого агента с нужными цветами
+                fig.add_trace(go.Scatter(
+                    x=x,
+                    y=y,
+                    mode='lines+markers',
+                    name=f'Agent {i+1}' if j == 1 else '',  # Показываем имя агента только для первого следа
+                    line=dict(color=color),
+                    legendgroup=f'Agent {i+1}',  # Группируем по агенту
+                    showlegend=(j == 1)  # Показываем имя агента только один раз
+                ))
 
 
     if 'Infinite' in selected_model:
@@ -531,15 +615,17 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
         round_influence_matrix_ret = '\n'.join([','.join(map(str, row)) for row in mat]) 
         influence_matrix_ret = influence_matrix_str
     # MAT = influence_matrix_ret
-    return {
-        'data': traces,
-        'layout': go.Layout(
-            title=f'Состояния модели {selected_model} от шага {n_range[0]} до {n_range[1]}',
-            xaxis={'title': 'Шаги'},
-            yaxis={'title': 'Состояние'},
-            hovermode='closest'
-        )
-    }, influence_matrix_ret, round_influence_matrix_ret
+
+
+
+    fig.update_layout(
+        title=f'Состояния модели {selected_model} от шага {n_range[0]} до {n_range[1]}',
+        xaxis={'title': 'Шаги'},
+        yaxis={'title': 'Состояние'},
+        hovermode='closest'
+    )
+    
+    return fig, influence_matrix_ret, round_influence_matrix_ret
 
 @app.callback(
     Output('save-output', 'children'),
