@@ -43,6 +43,23 @@ app.layout = html.Div(
             
         ),
         
+
+        dcc.Graph(id='model-graph', className='graph'),
+
+        html.Div(
+            id = 'sl',
+            children=[dcc.RangeSlider(
+                id='n-slider',
+                min=0,
+                max=50,
+                step=1,
+                value=[0, 10],
+                marks={i: str(i) for i in range(0, 51)}
+                
+            )], style={'display': 'block'}
+        ),
+
+
         html.Div(
             id= 'ag-num',
             children=[
@@ -165,31 +182,21 @@ app.layout = html.Div(
                     placeholder='Параметр K'
                 ),
                 html.Br(),
-                html.Label('Порог epsilon'),
+                html.Label(id='E-input-label', children=['Порог epsilon'], style={'display': 'block'} ),
                 dcc.Input(
                     id='E-input',
                     type='number',
                     value=0.2,
-                    placeholder='Порог epsilon'
+                    placeholder='Порог epsilon',
+                    style={'display': 'block'}
                 )
             ],
             style={'margin-top': '10px', 'display': 'none'}
         ),
 
-        dcc.Graph(id='model-graph', className='graph'),
         
-        html.Div(
-            id = 'sl',
-            children=[dcc.RangeSlider(
-                id='n-slider',
-                min=0,
-                max=50,
-                step=1,
-                value=[0, 10],
-                marks={i: str(i) for i in range(0, 51)}
-                
-            )], style={'display': 'block'}
-        ),
+        
+        
         
         html.Div(id='save-output', style={'marginTop': 20})
     ]
@@ -213,7 +220,7 @@ def update_output(value):
     [Input('model-dropdown', 'value')]
 )
 def toggle_stubbornness_input(selected_model):
-    if selected_model == 'Friedkin':
+    if selected_model == 'Friedkin' or selected_model == 'InfiniteFriedkin' :
         return {'display': 'block'}
     return {'display': 'none'}
 
@@ -259,14 +266,14 @@ def toggle_ag_num_input(selected_model):
 
 
 
-@app.callback(
-    Output('sl', 'style'),
-    [Input('model-dropdown', 'value')]
-)
-def toggle_ag_num_input(selected_model):
-    if 'Infinite' in selected_model:
-        return {'display': 'none'}
-    return {'display': 'block'}
+# @app.callback(
+#     Output('sl', 'style'),
+#     [Input('model-dropdown', 'value')]
+# )
+# def toggle_ag_num_input(selected_model):
+#     if 'Infinite' in selected_model:
+#         return {'display': 'none'}
+#     return {'display': 'block'}
 
 
 
@@ -310,7 +317,7 @@ def toggle_c_input(selected_model):
         return [{'display': 'block'}, {'display': 'block'}] 
     elif selected_model == 'equal_spacing':
         return [{'display': 'none'}, {'display': 'block'}] 
-    return [{'display': 'none'}, {'display': 'none'}] 
+    return [{'display': 'none'}, {'display': 'block'}] 
 
 
 
@@ -321,9 +328,21 @@ def toggle_c_input(selected_model):
     [Input('model-dropdown', 'value')]
 )
 def toggle_mat_input(selected_model):
-    if selected_model == 'Hegselmann-Krause':
+    if selected_model == 'Hegselmann-Krause' or selected_model == 'InfiniteHegselmannKrause' :
         return {'display': 'none'}
     return {'display': 'block'}
+
+
+
+@app.callback(
+    [Output('E-input', 'style'),
+     Output('E-input-label', 'style')],
+    [Input('model-dropdown', 'value')]
+)
+def toggle_E_input(selected_model):
+    if selected_model == 'InfiniteHegselmannKrause' :
+        return {'display': 'block'}, {'display': 'block'}
+    return {'display': 'none'}, {'display': 'none'}
 
 
 @app.callback(
@@ -435,7 +454,9 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
         model.adjust_participants(T)
 
     elif selected_model == 'InfiniteFriedkin':
+        stubbornness = float(stubbornness_str) 
         model = InfiniteFriedkinModel(float(delta), int(K), int(T))
+        model.stubbornness = stubbornness
         model.adjust_participants(T)
     elif selected_model == 'InfiniteHegselmannKrause':
         model = InfiniteHegselmannKrauseModel(float(delta), int(K), int(T))
@@ -447,12 +468,21 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
 
 
     if 'Infinite' in selected_model:
+        # states_up_to_n = model.generate_states_up_to_n(n_range[1])
+        # time_steps = list(range(n_range[1] + 1))
+        # states = np.array(states_up_to_n).T
+
+
+        L1 = model.L1
+        num_display_agents = 100
+        start_agent = max((L1 - num_display_agents) // 2, 0)
+        end_agent = start_agent + num_display_agents
         states_up_to_n = model.generate_states_up_to_n(n_range[1])
-        time_steps = list(range(n_range[1] + 1))
-        states = np.array(states_up_to_n).T
-        
+        states = np.array(states_up_to_n).T[start_agent:end_agent]
+        time_steps = list(range(n_range[0], n_range[1] + 1))
         traces = []
-        for i in range(min(states.shape[0], 100)):  # Ограничение на отображение до 100 агентов
+        print(states.shape)
+        for i in range(states.shape[0]): # Ограничение на отображение до 100 агентов
             traces.append(go.Scatter(
                 x=time_steps,
                 y=states[i],

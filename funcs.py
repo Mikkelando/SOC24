@@ -11,13 +11,12 @@ def generate_equal_spacing(delta, n):
 
 def generate_asymptotic_spacing(delta, C, n):
     delta = float(delta)
-    n= int(n)
+    n = int(n)
     C = float(C)
     spacing = []
-    current = np.random.uniform(0, C)
-    spacing.append(current)
-    for i in range(1, n):
-        step = np.random.uniform(delta, C)
+    current = 0
+    for i in range(n):
+        step = delta + (C - delta) / (i + 1)
         current += step
         spacing.append(current)
     return np.array(spacing)

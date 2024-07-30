@@ -16,10 +16,12 @@ class InfiniteFriedkinModel(DynamicModel):
         self.max_agents = 1000  # Установим максимальное число агентов для ограничения
         initial_state = self.generate_initial_state()
         influence_matrix = self.generate_influence_matrix()
-        stubbornness = self.generate_stubbornness()
+        # stubbornness = self.generate_stubbornness()
+       
+
         super().__init__(initial_state)
         self.influence_matrix = influence_matrix
-        self.stubbornness = stubbornness
+        self.stubbornness = 0.0 * np.ones(len(self.influence_matrix))
 
     def generate_initial_state(self):
         """
@@ -42,11 +44,13 @@ class InfiniteFriedkinModel(DynamicModel):
         W = W / W.sum(axis=1, keepdims=True)
         return W
 
-    def generate_stubbornness(self):
+    def generate_stubbornness(self, stubbornness):
         """
         Генерация вектора упрямства агентов.
         """
-        return np.random.rand(self.L1)
+        self.stubbornness = stubbornness * np.ones(len(self.influence_matrix))
+        return stubbornness * np.ones(len(self.influence_matrix))
+        # return np.random.rand(self.L1)
 
     def step(self):
         """
@@ -62,6 +66,6 @@ class InfiniteFriedkinModel(DynamicModel):
         self.L1 = L
         self.initial_state = self.generate_initial_state()
         self.influence_matrix = self.generate_influence_matrix()
-        self.stubbornness = self.generate_stubbornness()
+        # self.stubbornness = self.generate_stubbornness()
         self.current_state = np.array(self.initial_state)
         self.states_cache = {0: np.array(self.initial_state)}
