@@ -43,7 +43,14 @@ app.layout = html.Div(
             
         ),
         
-
+        html.Div(children=[
+                html.Label('Up/Down coloring'),
+                daq.ToggleSwitch(
+                    id='toggle-color',
+                    value=True
+                ),
+                    
+                ]),
         dcc.Graph(id='model-graph', className='graph'),
 
         html.Div(
@@ -459,12 +466,13 @@ def update_inputs(generate_initial_state_n_clicks, generate_matrix_n_clicks, app
      Input('E-input', 'value'),
      Input('delta-input', 'value'),
      Input('c-input', 'value'),
+     Input('toggle-color', 'value')
      
      ]
      , prevent_initial_call=True
 
 )
-def update_graph(selected_model, initial_state_str, influence_matrix_str, n_range, stubbornness_str, epsilon_str, T, K, E, delta, C):
+def update_graph(selected_model, initial_state_str, influence_matrix_str, n_range, stubbornness_str, epsilon_str, T, K, E, delta, C, color_value):
 
 
     if 'Infinite' not in selected_model:
@@ -529,33 +537,45 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
         states_up_to_n = model.generate_states_up_to_n(n_range[1])
         states = np.array(states_up_to_n).T[start_agent:end_agent]
         time_steps = list(range(n_range[0], n_range[1] + 1))
-        fig = go.Figure()
 
-        for i in range(states.shape[0]):
-            agent_states = states[i]
+        if not color_value:
 
-            for j in range(1, len(agent_states)):
-                x = [time_steps[j - 1], time_steps[j]]
-                y = [agent_states[j - 1], agent_states[j]]
+            fig = go.Figure()
 
-                if agent_states[j] > agent_states[j - 1]:
-                    color = 'blue'
-                elif agent_states[j] < agent_states[j - 1]:
-                    color = 'red'
-                else:
-                    color = 'black'
+            for i in range(states.shape[0]):
+                agent_states = states[i]
 
-                # Добавляем линии для каждого агента с нужными цветами
-                fig.add_trace(go.Scatter(
-                    x=x,
-                    y=y,
+                for j in range(1, len(agent_states)):
+                    x = [time_steps[j - 1], time_steps[j]]
+                    y = [agent_states[j - 1], agent_states[j]]
+
+                    if agent_states[j] > agent_states[j - 1]:
+                        color = 'blue'
+                    elif agent_states[j] < agent_states[j - 1]:
+                        color = 'red'
+                    else:
+                        color = 'black'
+
+                    # Добавляем линии для каждого агента с нужными цветами
+                    fig.add_trace(go.Scatter(
+                        x=x,
+                        y=y,
+                        mode='lines+markers',
+                        name=f'Agent {i+1}' if j == 1 else '',  # Показываем имя агента только для первого следа
+                        line=dict(color=color),
+                        legendgroup=f'Agent {i+1}',  # Группируем по агенту
+                        showlegend=(j == 1)  # Показываем имя агента только один раз
+                    ))
+        else:
+            traces = []
+            print(states.shape)
+            for i in range(states.shape[0]): # Ограничение на отображение до 100 агентов
+                traces.append(go.Scatter(
+                    x=time_steps,
+                    y=states[i],
                     mode='lines+markers',
-                    name=f'Agent {i+1}' if j == 1 else '',  # Показываем имя агента только для первого следа
-                    line=dict(color=color),
-                    legendgroup=f'Agent {i+1}',  # Группируем по агенту
-                    showlegend=(j == 1)  # Показываем имя агента только один раз
+                    name=f'Agent {i+1}'
                 ))
-
     
 
 
@@ -565,32 +585,43 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
         time_steps = list(range(n_range[0], n_range[1] + 1))
         states = np.array(states_up_to_n).T[:, n_range[0]:n_range[1] + 1]
 
-        fig = go.Figure()
+        if not color_value: 
+            fig = go.Figure()
 
-        for i in range(states.shape[0]):
-            agent_states = states[i]
+            for i in range(states.shape[0]):
+                agent_states = states[i]
 
-            for j in range(1, len(agent_states)):
-                x = [time_steps[j - 1], time_steps[j]]
-                y = [agent_states[j - 1], agent_states[j]]
+                for j in range(1, len(agent_states)):
+                    x = [time_steps[j - 1], time_steps[j]]
+                    y = [agent_states[j - 1], agent_states[j]]
 
-                if agent_states[j] > agent_states[j - 1]:
-                    color = 'blue'
-                elif agent_states[j] < agent_states[j - 1]:
-                    color = 'red'
-                else:
-                    color = 'black'
+                    if agent_states[j] > agent_states[j - 1]:
+                        color = 'blue'
+                    elif agent_states[j] < agent_states[j - 1]:
+                        color = 'red'
+                    else:
+                        color = 'black'
 
-                # Добавляем линии для каждого агента с нужными цветами
-                fig.add_trace(go.Scatter(
-                    x=x,
-                    y=y,
+                    # Добавляем линии для каждого агента с нужными цветами
+                    fig.add_trace(go.Scatter(
+                        x=x,
+                        y=y,
+                        mode='lines+markers',
+                        name=f'Agent {i+1}' if j == 1 else '',  # Показываем имя агента только для первого следа
+                        line=dict(color=color),
+                        legendgroup=f'Agent {i+1}',  # Группируем по агенту
+                        showlegend=(j == 1)  # Показываем имя агента только один раз
+                    ))
+        else:
+            traces = []
+            for i in range(states.shape[0]):
+                traces.append(go.Scatter(
+                    x=time_steps,
+                    y=states[i],
                     mode='lines+markers',
-                    name=f'Agent {i+1}' if j == 1 else '',  # Показываем имя агента только для первого следа
-                    line=dict(color=color),
-                    legendgroup=f'Agent {i+1}',  # Группируем по агенту
-                    showlegend=(j == 1)  # Показываем имя агента только один раз
+                    name=f'Agent {i+1}'
                 ))
+        
 
 
     if 'Infinite' in selected_model:
@@ -617,15 +648,29 @@ def update_graph(selected_model, initial_state_str, influence_matrix_str, n_rang
     # MAT = influence_matrix_ret
 
 
-
-    fig.update_layout(
-        title=f'Состояния модели {selected_model} от шага {n_range[0]} до {n_range[1]}',
-        xaxis={'title': 'Шаги'},
-        yaxis={'title': 'Состояние'},
-        hovermode='closest'
-    )
+    if not color_value: 
+        fig.update_layout(
+            title=f'Состояния модели {selected_model} от шага {n_range[0]} до {n_range[1]}',
+            xaxis={'title': 'Шаги'},
+            yaxis={'title': 'Состояние'},
+            hovermode='closest'
+        )
     
-    return fig, influence_matrix_ret, round_influence_matrix_ret
+    
+
+
+    if not color_value: 
+        return fig, influence_matrix_ret, round_influence_matrix_ret
+    else:
+        return {
+        'data': traces,
+        'layout': go.Layout(
+            title=f'Состояния модели {selected_model} от шага {n_range[0]} до {n_range[1]}',
+            xaxis={'title': 'Шаги'},
+            yaxis={'title': 'Состояние'},
+            hovermode='closest'
+            )}, influence_matrix_ret, round_influence_matrix_ret
+
 
 @app.callback(
     Output('save-output', 'children'),
